@@ -5,6 +5,7 @@ import {
   Move,
   GameMode,
   AIDifficulty,
+  TimeControl,
   Player,
 } from '../types/game';
 import { createInitialState, executeMove, getValidMoves } from '../logic/rules';
@@ -15,7 +16,7 @@ const STATS_STORAGE_KEY = 'super_ttt_stats_v1';
 
 export function useGameState() {
   const [state, setState] = useState<GameState>(() => {
-    const init = createInitialState('1P', 3, 'X');
+    const init = createInitialState('1P', 3, 'X', 'casual');
     try {
       const savedStats = localStorage.getItem(STATS_STORAGE_KEY);
       if (savedStats) {
@@ -61,7 +62,63 @@ export function useGameState() {
     soundFx.setEnabled(state.soundEnabled);
   }, [state.soundEnabled]);
 
-  // Handle AI turn automatically with zero timer loops
+  // Timed Clock Countdown Interval
+  useEffect(() => {
+    if (
+      state.timeControl === 'casual' ||
+      state.winner !== null ||
+      state.moveHistory.length === 0
+    ) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setState((prev) => {
+        if (prev.winner !== null || prev.timeControl === 'casual') return prev;
+
+        const p = prev.currentPlayer;
+        const currentTime = prev.playerTimes[p];
+
+        if (currentTime <= 1) {
+          // Player ran out of time!
+          const timeoutWinner: Player = p === 'X' ? 'O' : 'X';
+          soundFx.playGameWin(timeoutWinner);
+          if (prev.gameMode === '1P' && timeoutWinner === prev.humanPlayer) {
+            confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+          }
+
+          const updatedStats = { ...prev.stats };
+          if (timeoutWinner === 'X') updatedStats.xWins++;
+          else updatedStats.oWins++;
+
+          return {
+            ...prev,
+            playerTimes: { ...prev.playerTimes, [p]: 0 },
+            winner: timeoutWinner,
+            isTimeout: true,
+            stats: updatedStats,
+          };
+        }
+
+        return {
+          ...prev,
+          playerTimes: {
+            ...prev.playerTimes,
+            [p]: currentTime - 1,
+          },
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [
+    state.timeControl,
+    state.winner,
+    state.moveHistory.length,
+    state.currentPlayer,
+  ]);
+
+  // Handle AI turn automatically
   useEffect(() => {
     if (
       state.gameMode === '1P' &&
@@ -81,7 +138,6 @@ export function useGameState() {
           if (aiMove && state.winner === null) {
             const nextState = executeMove(state, aiMove);
 
-            // Sound trigger for sub-board or game win
             const subAfter = nextState.subBoards[aiMove.boardRow][aiMove.boardCol];
             if (subAfter.winner) {
               soundFx.playSubBoardWin(subAfter.winner);
@@ -121,13 +177,11 @@ export function useGameState() {
     (boardRow: number, boardCol: number, cellRow: number, cellCol: number) => {
       if (state.winner !== null || state.isThinking) return;
 
-      // In 1P mode, prevent clicking during AI's turn
       if (state.gameMode === '1P' && state.currentPlayer !== state.humanPlayer) {
         soundFx.playInvalid();
         return;
       }
 
-      // Check if board/cell is valid move
       const validMoves = getValidMoves(state.subBoards, state.activeBoard);
       const isValid = validMoves.some(
         (m) =>
@@ -152,7 +206,6 @@ export function useGameState() {
 
       const nextState = executeMove(state, move);
 
-      // Sound triggers
       const subAfter = nextState.subBoards[boardRow][boardCol];
       if (subAfter.winner) {
         soundFx.playSubBoardWin(subAfter.winner);
@@ -175,11 +228,17 @@ export function useGameState() {
     (
       newMode: GameMode = state.gameMode,
       newDiff: AIDifficulty = state.aiDifficulty,
-      newHumanPlayer: Player = state.humanPlayer
+      newHumanPlayer: Player = state.humanPlayer,
+      newTimeControl: TimeControl = state.timeControl
     ) => {
       soundFx.playClick();
       setState((prev) => {
-        const fresh = createInitialState(newMode, newDiff, newHumanPlayer);
+        const fresh = createInitialState(
+          newMode,
+          newDiff,
+          newHumanPlayer,
+          newTimeControl
+        );
         return {
           ...fresh,
           soundEnabled: prev.soundEnabled,
@@ -188,17 +247,16 @@ export function useGameState() {
         };
       });
     },
-    [state.gameMode, state.aiDifficulty, state.humanPlayer]
+    [state.gameMode, state.aiDifficulty, state.humanPlayer, state.timeControl]
   );
 
-  // Undo last move (in 1P mode, undos 2 moves: AI + Player)
+  // Undo last move
   const undoMove = useCallback(() => {
     soundFx.playClick();
     if (state.moveHistory.length === 0 || state.isThinking) return;
 
     let targetHistoryLength = state.moveHistory.length - 1;
 
-    // In 1P mode, if it's currently human turn, pop both AI move & human move
     if (
       state.gameMode === '1P' &&
       state.currentPlayer === state.humanPlayer &&
@@ -207,11 +265,11 @@ export function useGameState() {
       targetHistoryLength = state.moveHistory.length - 2;
     }
 
-    // Replay game from initial state up to targetHistoryLength
     let replayState = createInitialState(
       state.gameMode,
       state.aiDifficulty,
-      state.humanPlayer
+      state.humanPlayer,
+      state.timeControl
     );
     replayState.soundEnabled = state.soundEnabled;
     replayState.theme = state.theme;
@@ -238,16 +296,23 @@ export function useGameState() {
 
   const setGameMode = useCallback(
     (mode: GameMode) => {
-      resetGame(mode, state.aiDifficulty, state.humanPlayer);
+      resetGame(mode, state.aiDifficulty, state.humanPlayer, state.timeControl);
     },
-    [resetGame, state.aiDifficulty, state.humanPlayer]
+    [resetGame, state.aiDifficulty, state.humanPlayer, state.timeControl]
   );
 
   const setDifficulty = useCallback(
     (diff: AIDifficulty) => {
-      resetGame(state.gameMode, diff, state.humanPlayer);
+      resetGame(state.gameMode, diff, state.humanPlayer, state.timeControl);
     },
-    [resetGame, state.gameMode, state.humanPlayer]
+    [resetGame, state.gameMode, state.humanPlayer, state.timeControl]
+  );
+
+  const setTimeControl = useCallback(
+    (tc: TimeControl) => {
+      resetGame(state.gameMode, state.aiDifficulty, state.humanPlayer, tc);
+    },
+    [resetGame, state.gameMode, state.aiDifficulty, state.humanPlayer]
   );
 
   return {
@@ -259,5 +324,6 @@ export function useGameState() {
     toggleTheme,
     setGameMode,
     setDifficulty,
+    setTimeControl,
   };
 }

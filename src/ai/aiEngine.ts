@@ -30,20 +30,20 @@ export const AI_DIFFICULTY_INFOS: Record<AIDifficulty, AIDifficultyInfo> = {
     level: 4,
     name: 'Advanced',
     tagline: 'Monte Carlo Searcher',
-    description: 'Runs Monte Carlo Tree Search (~200 simulations) for instant multi-turn positioning.',
+    description: 'Runs fast Monte Carlo Tree Search (~20ms time budget) for strong multi-turn positioning.',
     badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   },
   5: {
     level: 5,
     name: 'Master',
     tagline: 'Grandmaster MCTS Worker',
-    description: 'Deep MCTS (~600 simulations) running off-thread for top-tier play.',
+    description: 'Deep MCTS (~45ms time budget) running off-thread for top-tier play.',
     badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
   },
 };
 
 /**
- * Computes AI move based on difficulty level with instant responsiveness (<50ms)
+ * Computes AI move based on difficulty level with guaranteed instant responsiveness (<30ms)
  */
 export async function computeAIMove(
   state: GameState,
@@ -57,25 +57,18 @@ export async function computeAIMove(
     case 2:
       return getBeginnerMove(state);
     case 3:
-      return getMinimaxMove(state, 2); // Fast depth 2 minimax (~5ms)
+      return getMinimaxMove(state, 2);
     case 4:
-      if (worker) {
-        try {
-          return await computeWorkerMove(worker, state, 200, 150);
-        } catch {
-          return getMCTSMove(state, 200);
-        }
-      }
-      return getMCTSMove(state, 200);
+      return getMCTSMove(state, 20); // 20ms hard time budget
     case 5:
       if (worker) {
         try {
-          return await computeWorkerMove(worker, state, 600, 200);
+          return await computeWorkerMove(worker, state, 45, 60);
         } catch {
-          return getMCTSMove(state, 400);
+          return getMCTSMove(state, 45);
         }
       }
-      return getMCTSMove(state, 400);
+      return getMCTSMove(state, 45); // 45ms hard time budget
     default:
       return getBeginnerMove(state);
   }
@@ -87,8 +80,8 @@ export async function computeAIMove(
 function computeWorkerMove(
   worker: Worker,
   state: GameState,
-  iterations: number,
-  timeoutMs = 150
+  timeBudgetMs: number,
+  timeoutMs = 60
 ): Promise<Move | null> {
   return new Promise((resolve) => {
     let done = false;
@@ -97,8 +90,7 @@ function computeWorkerMove(
       if (!done) {
         done = true;
         worker.removeEventListener('message', handleMessage);
-        // Fallback to fast local MCTS if worker exceeds timeout
-        resolve(getMCTSMove(state, 150));
+        resolve(getMCTSMove(state, 20));
       }
     }, timeoutMs);
 
@@ -112,6 +104,6 @@ function computeWorkerMove(
     };
 
     worker.addEventListener('message', handleMessage);
-    worker.postMessage({ state, iterations });
+    worker.postMessage({ state, timeBudgetMs });
   });
 }

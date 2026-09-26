@@ -1,7 +1,7 @@
 import { getMCTSMove } from '../ai/mcts';
 
 self.onmessage = (e: MessageEvent) => {
-  const { state, iterations } = e.data;
-  const move = getMCTSMove(state, iterations || 5000);
+  const { state, timeBudgetMs } = e.data;
+  const move = getMCTSMove(state, timeBudgetMs || 35);
   self.postMessage({ move });
 };

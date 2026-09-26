@@ -4,6 +4,7 @@ export type BoardWinner = Player | 'TIE' | null;
 
 export type GameMode = '1P' | '2P';
 export type AIDifficulty = 1 | 2 | 3 | 4 | 5;
+export type TimeControl = 'casual' | '2min' | '5min' | '10min';
 
 export interface Coordinate {
   row: number;
@@ -34,6 +35,9 @@ export interface GameState {
   gameMode: GameMode;
   aiDifficulty: AIDifficulty;
   humanPlayer: Player; // 'X' or 'O' in 1P mode
+  timeControl: TimeControl;
+  playerTimes: { X: number; O: number }; // Time remaining in seconds
+  isTimeout: boolean; // True if game ended due to clock expiration
   winner: BoardWinner;
   winningMasterLine?: number[][] | null;
   moveHistory: Move[];

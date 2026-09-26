@@ -18,6 +18,7 @@ export function App() {
     toggleTheme,
     setGameMode,
     setDifficulty,
+    setTimeControl,
   } = useGameState();
 
   const [isRulesOpen, setIsRulesOpen] = useState(false);
@@ -42,12 +43,14 @@ export function App() {
           onResetGame={() => resetGame()}
         />
 
-        {/* Mode & Difficulty Selector Bar */}
+        {/* Mode, Time Control & Difficulty Selector Bar */}
         <GameModeBar
           gameMode={state.gameMode}
           aiDifficulty={state.aiDifficulty}
+          timeControl={state.timeControl}
           onSetGameMode={setGameMode}
           onSetDifficulty={setDifficulty}
+          onSetTimeControl={setTimeControl}
           isThinking={state.isThinking}
         />
 

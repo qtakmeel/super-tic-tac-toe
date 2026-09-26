@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Trophy, Loader2, Compass } from 'lucide-react';
+import { Trophy, Loader2, Compass, Clock } from 'lucide-react';
 import { GameState } from '../types/game';
 import { AI_DIFFICULTY_INFOS } from '../ai/aiEngine';
 
@@ -16,10 +16,16 @@ export const GameStatus: React.FC<GameStatusProps> = ({ state }) => {
     gameMode,
     aiDifficulty,
     humanPlayer,
+    timeControl,
+    playerTimes,
+    isTimeout,
   } = state;
 
-  const isAITurn =
-    gameMode === '1P' && currentPlayer !== humanPlayer && winner === null;
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Winner status banner
   if (winner) {
@@ -31,6 +37,18 @@ export const GameStatus: React.FC<GameStatusProps> = ({ state }) => {
             <h2 className="text-xl sm:text-2xl font-black tracking-wide text-white">
               {winner === 'TIE' ? (
                 <span className="text-slate-200">GAME TIED! EVENLY MATCHED!</span>
+              ) : isTimeout ? (
+                <span>
+                  PLAYER{' '}
+                  <span
+                    className={
+                      winner === 'X' ? 'text-blue-400' : 'text-red-400'
+                    }
+                  >
+                    {winner}
+                  </span>{' '}
+                  WINS ON TIME!
+                </span>
               ) : (
                 <span>
                   PLAYER{' '}
@@ -48,6 +66,8 @@ export const GameStatus: React.FC<GameStatusProps> = ({ state }) => {
             <p className="text-xs text-slate-300">
               {winner === 'TIE'
                 ? 'All boards filled without a 3-in-a-row alignment.'
+                : isTimeout
+                ? `Opponent ran out of time on their clock!`
                 : gameMode === '1P' && winner === humanPlayer
                 ? `You defeated the Level ${aiDifficulty} (${AI_DIFFICULTY_INFOS[aiDifficulty].name}) AI!`
                 : gameMode === '1P'
@@ -60,7 +80,6 @@ export const GameStatus: React.FC<GameStatusProps> = ({ state }) => {
     );
   }
 
-  // Active status bar
   const boardNames = [
     ['Top-Left', 'Top-Center', 'Top-Right'],
     ['Middle-Left', 'Center', 'Middle-Right'],
@@ -69,8 +88,8 @@ export const GameStatus: React.FC<GameStatusProps> = ({ state }) => {
 
   return (
     <div className="w-full max-w-5xl flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 mb-6 shadow-md">
-      {/* Player Turn Indicator */}
-      <div className="flex items-center gap-3">
+      {/* Player Turn & Clock Bar */}
+      <div className="flex items-center gap-3 flex-wrap">
         <div
           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-sm border shadow-inner ${
             currentPlayer === 'X'
@@ -89,6 +108,32 @@ export const GameStatus: React.FC<GameStatusProps> = ({ state }) => {
               (currentPlayer === humanPlayer ? ' (You)' : ' (AI)')}
           </span>
         </div>
+
+        {/* Timed Mode Clocks Display */}
+        {timeControl !== 'casual' && (
+          <div className="flex items-center gap-2 bg-slate-950/70 px-2.5 py-1 rounded-xl border border-slate-800 text-xs font-mono font-bold">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <div
+              className={`px-2 py-0.5 rounded ${
+                currentPlayer === 'X'
+                  ? 'bg-blue-600/30 text-blue-300 ring-1 ring-blue-500/50'
+                  : 'text-slate-400'
+              } ${playerTimes.X <= 15 ? 'text-red-400 animate-pulse' : ''}`}
+            >
+              X: {formatTime(playerTimes.X)}
+            </div>
+            <span className="text-slate-600">|</span>
+            <div
+              className={`px-2 py-0.5 rounded ${
+                currentPlayer === 'O'
+                  ? 'bg-red-600/30 text-red-300 ring-1 ring-red-500/50'
+                  : 'text-slate-400'
+              } ${playerTimes.O <= 15 ? 'text-red-400 animate-pulse' : ''}`}
+            >
+              O: {formatTime(playerTimes.O)}
+            </div>
+          </div>
+        )}
 
         {isThinking && (
           <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 animate-pulse">

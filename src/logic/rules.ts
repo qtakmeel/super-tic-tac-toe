@@ -6,6 +6,7 @@ import {
   Move,
   Coordinate,
   Player,
+  TimeControl,
 } from '../types/game';
 
 // All 8 possible winning line configurations on a 3x3 board
@@ -24,6 +25,23 @@ export const WINNING_LINES = [
 ];
 
 /**
+ * Helper to convert TimeControl to seconds per player
+ */
+export function getTimeControlSeconds(tc: TimeControl): number {
+  switch (tc) {
+    case '2min':
+      return 120;
+    case '5min':
+      return 300;
+    case '10min':
+      return 600;
+    case 'casual':
+    default:
+      return 0;
+  }
+}
+
+/**
  * Creates an empty 3x3 grid
  */
 export function createEmptyGrid<T>(fillValue: T): T[][] {
@@ -38,7 +56,8 @@ export function createEmptyGrid<T>(fillValue: T): T[][] {
 export function createInitialState(
   gameMode: GameState['gameMode'] = '1P',
   aiDifficulty: GameState['aiDifficulty'] = 3,
-  humanPlayer: Player = 'X'
+  humanPlayer: Player = 'X',
+  timeControl: TimeControl = 'casual'
 ): GameState {
   const subBoards: SubBoard[][] = Array(3)
     .fill(null)
@@ -53,6 +72,8 @@ export function createInitialState(
         }))
     );
 
+  const initialSecs = getTimeControlSeconds(timeControl);
+
   return {
     subBoards,
     masterGrid: createEmptyGrid<BoardWinner>(null),
@@ -61,6 +82,9 @@ export function createInitialState(
     gameMode,
     aiDifficulty,
     humanPlayer,
+    timeControl,
+    playerTimes: { X: initialSecs, O: initialSecs },
+    isTimeout: false,
     winner: null,
     winningMasterLine: null,
     moveHistory: [],
@@ -116,7 +140,6 @@ export function getValidMoves(
 ): Move[] {
   const moves: Move[] = [];
 
-  // Helper to add all empty cells from a specific subboard
   const addMovesForBoard = (bR: number, bC: number) => {
     const board = subBoards[bR][bC];
     if (board.winner !== null || board.isFull) return;
@@ -129,7 +152,7 @@ export function getValidMoves(
             boardCol: bC,
             cellRow: cR,
             cellCol: cC,
-            player: 'X', // dummy, player gets assigned on move execution
+            player: 'X',
           });
         }
       }
@@ -141,10 +164,8 @@ export function getValidMoves(
     subBoards[activeBoard.row][activeBoard.col].winner === null &&
     !subBoards[activeBoard.row][activeBoard.col].isFull
   ) {
-    // Player is restricted to the specific active subboard
     addMovesForBoard(activeBoard.row, activeBoard.col);
   } else {
-    // Wild move! Player can move in any active, uncompleted subboard
     for (let bR = 0; bR < 3; bR++) {
       for (let bC = 0; bC < 3; bC++) {
         addMovesForBoard(bR, bC);
@@ -175,14 +196,12 @@ export function cloneSubBoards(subBoards: SubBoard[][]): SubBoard[][] {
 export function executeMove(state: GameState, move: Move): GameState {
   const { boardRow, boardCol, cellRow, cellCol, player } = move;
 
-  // Deep clone state fields that mutate
   const subBoards = cloneSubBoards(state.subBoards);
   const masterGrid = state.masterGrid.map((r) => [...r]);
 
   const targetSubBoard = subBoards[boardRow][boardCol];
   targetSubBoard.cells[cellRow][cellCol] = player;
 
-  // Check sub-board winner if not already won
   if (targetSubBoard.winner === null) {
     const subCheck = check3InARow(targetSubBoard.cells as BoardWinner[][]);
     if (subCheck.winner) {
@@ -197,13 +216,11 @@ export function executeMove(state: GameState, move: Move): GameState {
   }
   targetSubBoard.isFull = isGridFull(targetSubBoard.cells);
 
-  // Check overall master game winner
   const masterCheck = check3InARow(masterGrid);
   let overallWinner: BoardWinner = masterCheck.winner;
   let winningMasterLine: number[][] | null = masterCheck.line;
 
   if (!overallWinner) {
-    // Check if master board is tied (all sub-boards are finished/won/tied)
     let allFinished = true;
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 3; c++) {
@@ -215,7 +232,6 @@ export function executeMove(state: GameState, move: Move): GameState {
     }
 
     if (allFinished) {
-      // Determine winner by count of won sub-boards if tied board
       let xCount = 0;
       let oCount = 0;
       for (let r = 0; r < 3; r++) {
@@ -230,14 +246,12 @@ export function executeMove(state: GameState, move: Move): GameState {
     }
   }
 
-  // Determine next active board
   const nextTargetBoard = subBoards[cellRow][cellCol];
   let nextActiveBoard: Coordinate | null = null;
 
   if (nextTargetBoard.winner === null && !nextTargetBoard.isFull) {
     nextActiveBoard = { row: cellRow, col: cellCol };
   } else {
-    // Target board is finished -> Wild move allowed!
     nextActiveBoard = null;
   }
 
