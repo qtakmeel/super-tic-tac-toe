@@ -21,9 +21,9 @@ export const MasterBoard: React.FC<MasterBoardProps> = ({ state, onCellClick }) 
   const lastMove = moveHistory.length > 0 ? moveHistory[moveHistory.length - 1] : null;
 
   return (
-    <div className="relative w-full max-w-2xl aspect-square p-3 sm:p-4 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-2xl backdrop-blur-md">
+    <div className="relative w-full max-w-2xl p-1.5 sm:p-4 rounded-3xl bg-slate-950/80 border border-slate-800 shadow-2xl backdrop-blur-md">
       {/* 3x3 SubBoards Grid */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-4 w-full h-full">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-3.5 w-full">
         {subBoards.map((row, bR) =>
           row.map((subBoard, bC) => {
             const isActive =

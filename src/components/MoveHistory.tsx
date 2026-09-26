@@ -20,9 +20,9 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-2xl bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-lg mt-6">
-      <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
-        <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
+    <div className="w-full max-w-2xl bg-slate-900/60 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-lg mt-4 sm:mt-6">
+      <div className="flex items-center justify-between mb-2.5 border-b border-slate-800 pb-2">
+        <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-300">
           <History className="w-4 h-4 text-indigo-400" />
           <span>Move History ({moveHistory.length})</span>
         </div>
@@ -38,7 +38,7 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({
       </div>
 
       {moveHistory.length === 0 ? (
-        <p className="text-xs text-slate-500 italic py-2 text-center">
+        <p className="text-xs text-slate-500 italic py-1.5 text-center">
           No moves played yet. Make your first move!
         </p>
       ) : (

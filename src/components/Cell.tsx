@@ -22,7 +22,7 @@ export const Cell: React.FC<CellProps> = ({
     <button
       onClick={onClick}
       disabled={disabled || !isValidMove || value !== null}
-      className={`relative aspect-square w-full rounded-lg sm:rounded-xl flex items-center justify-center font-black transition-all duration-150 select-none ${
+      className={`relative aspect-square w-full rounded-md sm:rounded-xl flex items-center justify-center font-black transition-all duration-150 select-none ${
         value === 'X'
           ? 'bg-blue-500/15 border border-blue-500/30 text-blue-400'
           : value === 'O'
@@ -34,12 +34,12 @@ export const Cell: React.FC<CellProps> = ({
     >
       {/* Played Symbols */}
       {value === 'X' && (
-        <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pop-in">
+        <span className="text-base sm:text-2xl md:text-3xl font-extrabold text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pop-in">
           X
         </span>
       )}
       {value === 'O' && (
-        <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pop-in">
+        <span className="text-base sm:text-2xl md:text-3xl font-extrabold text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pop-in">
           O
         </span>
       )}
@@ -47,7 +47,7 @@ export const Cell: React.FC<CellProps> = ({
       {/* Hover preview for next move */}
       {value === null && isValidMove && !disabled && (
         <span
-          className={`text-xl sm:text-2xl opacity-0 group-hover:opacity-40 transition-opacity font-extrabold ${
+          className={`text-base sm:text-2xl opacity-0 group-hover:opacity-40 transition-opacity font-extrabold ${
             currentPlayer === 'X' ? 'text-blue-400' : 'text-red-400'
           }`}
         >
