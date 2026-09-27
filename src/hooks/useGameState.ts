@@ -135,24 +135,33 @@ export function useGameState() {
         const aiMove = await computeAIMove(state, workerRef.current);
 
         if (!isCancelled) {
-          if (aiMove && state.winner === null) {
-            const nextState = executeMove(state, aiMove);
-
-            const subAfter = nextState.subBoards[aiMove.boardRow][aiMove.boardCol];
-            if (subAfter.winner) {
-              soundFx.playSubBoardWin(subAfter.winner);
-            } else {
-              soundFx.playMove(aiMove.player);
-            }
-
-            if (nextState.winner) {
-              soundFx.playGameWin(nextState.winner);
-              if (nextState.winner === state.humanPlayer) {
-                confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+          if (aiMove) {
+            // Use functional setState so we can check the *latest* state.
+            // If the clock expired while the AI was thinking, winner is already
+            // set and we must not overwrite it with the AI's move.
+            setState((prev) => {
+              if (prev.winner !== null) {
+                return { ...prev, isThinking: false };
               }
-            }
 
-            setState({ ...nextState, isThinking: false });
+              const nextState = executeMove(prev, aiMove);
+
+              const subAfter = nextState.subBoards[aiMove.boardRow][aiMove.boardCol];
+              if (subAfter.winner) {
+                soundFx.playSubBoardWin(subAfter.winner);
+              } else {
+                soundFx.playMove(aiMove.player);
+              }
+
+              if (nextState.winner) {
+                soundFx.playGameWin(nextState.winner);
+                if (nextState.winner === prev.humanPlayer) {
+                  confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+                }
+              }
+
+              return { ...nextState, isThinking: false };
+            });
           } else {
             setState((prev) => ({ ...prev, isThinking: false }));
           }

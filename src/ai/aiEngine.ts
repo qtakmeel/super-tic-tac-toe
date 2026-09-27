@@ -29,25 +29,48 @@ export const AI_DIFFICULTY_INFOS: Record<AIDifficulty, AIDifficultyInfo> = {
   4: {
     level: 4,
     name: 'Advanced',
-    tagline: 'Monte Carlo Searcher',
-    description: 'Runs fast Monte Carlo Tree Search (~20ms time budget) for strong multi-turn positioning.',
+    tagline: 'MCTS Explorer',
+    description: 'Runs Monte Carlo Tree Search with UCB1 selection for strong multi-turn positioning.',
     badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   },
   5: {
     level: 5,
     name: 'Master',
-    tagline: 'Grandmaster MCTS Worker',
-    description: 'Deep MCTS (~45ms time budget) running off-thread for top-tier play.',
+    tagline: 'Deep MCTS',
+    description: 'Extended Monte Carlo Tree Search with deeper simulations for top-tier strategic play.',
     badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
   },
 };
 
 /**
- * Computes AI move based on difficulty level with guaranteed instant responsiveness (<30ms)
+ * Computes an adaptive time budget for MCTS based on remaining clock time.
+ * Mirrors chess-style time management: use a small fraction of remaining time,
+ * so the AI always has clock to spare.
+ */
+function getTimeBudget(state: GameState, baseMs: number): number {
+  if (state.timeControl === 'casual') return baseMs;
+
+  const remainingSecs = state.playerTimes[state.currentPlayer];
+
+  // Emergency: clock almost gone — think as briefly as possible
+  if (remainingSecs <= 5) return 80;
+
+  // Low on time: cap to a fraction of remaining time
+  if (remainingSecs <= 30) return Math.min(baseMs, remainingSecs * 20); // ~2%
+
+  // Normal: use up to ~3% of remaining time, capped at base budget
+  return Math.min(baseMs, remainingSecs * 30);
+}
+
+/**
+ * Computes AI move based on difficulty level.
+ * L4 and L5 both run synchronously in the main thread — the UCT MCTS is
+ * fast enough (<30ms / <60ms) that a Worker is not needed and would only
+ * add postMessage serialization overhead.
  */
 export async function computeAIMove(
   state: GameState,
-  worker?: Worker | null
+  _worker?: Worker | null
 ): Promise<Move | null> {
   const { aiDifficulty } = state;
 
@@ -59,51 +82,10 @@ export async function computeAIMove(
     case 3:
       return getMinimaxMove(state, 2);
     case 4:
-      return getMCTSMove(state, 20); // 20ms hard time budget
+      return getMCTSMove(state, getTimeBudget(state, 25));
     case 5:
-      if (worker) {
-        try {
-          return await computeWorkerMove(worker, state, 45, 60);
-        } catch {
-          return getMCTSMove(state, 45);
-        }
-      }
-      return getMCTSMove(state, 45); // 45ms hard time budget
+      return getMCTSMove(state, getTimeBudget(state, 60));
     default:
       return getBeginnerMove(state);
   }
-}
-
-/**
- * Offloads MCTS calculation to Web Worker with strict timeout fallback
- */
-function computeWorkerMove(
-  worker: Worker,
-  state: GameState,
-  timeBudgetMs: number,
-  timeoutMs = 60
-): Promise<Move | null> {
-  return new Promise((resolve) => {
-    let done = false;
-
-    const timer = setTimeout(() => {
-      if (!done) {
-        done = true;
-        worker.removeEventListener('message', handleMessage);
-        resolve(getMCTSMove(state, 20));
-      }
-    }, timeoutMs);
-
-    const handleMessage = (e: MessageEvent) => {
-      if (!done) {
-        done = true;
-        clearTimeout(timer);
-        worker.removeEventListener('message', handleMessage);
-        resolve(e.data.move || null);
-      }
-    };
-
-    worker.addEventListener('message', handleMessage);
-    worker.postMessage({ state, timeBudgetMs });
-  });
 }
